@@ -10,4 +10,4 @@
 \
 Program start\
 First，run ./get_CF_curve_node_eff_pro.py or ./get_CF_curve_node_isfail.py\
-Second，run ./predict_GRU_CUDA.py ./predict_lstm_CUDA.py ./predict_Transformer_CUDA.py\
+Second，run ./predict_GRU_CUDA.py ./predict_lstm_CUDA.py ./predict_Transformer_CUDA.py
