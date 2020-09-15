@@ -11,6 +11,33 @@ cuda = torch.cuda.is_available()
 if cuda:
     torch.cuda.manual_seed(SEED)
 
+class CF(nn.Module):
+    def __init__(self, input_dim, hidden_dim, layer_num):
+        super(CF, self).__init__()
+
+        self.input_dim = input_dim
+        self.hidden_dim = hidden_dim
+        self.lstm = torch.nn.LSTM(input_size=self.input_dim, hidden_size=self.hidden_dim, num_layers=layer_num)
+        self.out = torch.nn.Linear(self.hidden_dim, 2)  # output layer
+
+    def forward(self, miu):
+        output, (hn, cn) = self.lstm(miu)
+        output_in_last_timestep = hn[-1, :, :]
+        x = self.out(output_in_last_timestep)
+        return x
+
+data_death = []
+with open("./data/7/hadm_death_20_7.txt", "r") as file_death:
+    for line in file_death.readlines():
+        is_death = float(str(line.strip('\n')).split('\t')[1])
+        data_death.append(is_death)
+data_death_Tensor = torch.LongTensor(data_death)
+
+group = 776
+# cf_record = np.load("./data/7/CF_node_polynomial_eff_pro.npy")
+# cf_record = np.load("./data/7/CF_node_is_fail.npy")
+cf_record = np.load("./data/7/CF_node_eff_pro.npy")
+
 hidden_dim_all = [32, 64, 128, 256]
 weight_CRs = [0.3, 0.5, 0.7, 0.9, 1.0]
 
@@ -27,35 +54,6 @@ for index in range(5):
                 input_dim = 451
                 layer_num = 2
                 learning_rate = 0.0005
-
-                class CF(nn.Module):
-                    def __init__(self, input_dim, hidden_dim, layer_num):
-                        super(CF, self).__init__()
-                        
-                        self.input_dim = input_dim
-                        self.hidden_dim = hidden_dim
-                        self.lstm = torch.nn.LSTM(input_size=self.input_dim, hidden_size=self.hidden_dim, num_layers=layer_num)
-                        self.out = torch.nn.Linear(self.hidden_dim, 2) # output layer
-
-                    def forward(self, miu):
-
-                        output, (hn, cn) = self.lstm(miu)
-                        output_in_last_timestep = hn[-1, :, :]
-                        x = self.out(output_in_last_timestep)
-                        return x
-
-                data_death = []
-                with open("./data/7/hadm_death_20_7.txt", "r") as file_death:
-                    for line in file_death.readlines():
-                        is_death = float(str(line.strip('\n')).split('\t')[1])
-                        data_death.append(is_death)
-                data_death_Tensor = torch.LongTensor(data_death)
-                SAMPLE_NUM = len(data_death)
-
-                group = 776
-                # cf_record = np.load("./data/7/CF_node_polynomial_eff_pro.npy")
-                # cf_record = np.load("./data/7/CF_node_is_fail.npy")
-                cf_record = np.load("./data/7/CF_node_eff_pro.npy")
 
                 if index == 0:
                     cal_r_is_fail_train = cf_record[group * 1:]
@@ -124,7 +122,6 @@ for index in range(5):
                         best_epoch = epoch
                         bad_count = 0
                         best_out_test = out_test.cpu()
-
                     else:
                         bad_count += 1
 

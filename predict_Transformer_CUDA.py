@@ -14,6 +14,7 @@ cuda = torch.cuda.is_available()
 if cuda:
     torch.cuda.manual_seed(SEED)
 
+
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, dropout=0.1, max_len=60):
         super(PositionalEncoding, self).__init__()
@@ -32,6 +33,44 @@ class PositionalEncoding(nn.Module):
         return x
 
 
+class CF(nn.Module):
+    def __init__(self, n_hidden, length, input_dim, hidden_dim, layer_num):
+        super(CF, self).__init__()
+
+        self.input_dim = input_dim
+        self.hidden_dim = hidden_dim
+        self.pos_encoder = PositionalEncoding(n_hidden)
+        self.hidden_ = torch.nn.Linear(input_dim, n_hidden)
+
+        encoder_layer = torch.nn.TransformerEncoderLayer(d_model=n_hidden, nhead=2, dim_feedforward=hidden_dim,
+                                                         dropout=0.0)
+        self.transformer = torch.nn.TransformerEncoder(encoder_layer, num_layers=layer_num)
+
+        self.hidden = torch.nn.Linear(n_hidden, 1)
+        self.out = torch.nn.Linear(length, 2)
+
+    def forward(self, miu):
+        miu = self.hidden_(miu)
+        miu = self.pos_encoder(miu)
+        x = self.transformer(miu)
+        x = self.hidden(x)
+        output = self.out(x.squeeze().transpose(0, 1))
+        return output
+
+data_death = []
+with open("./data/7/hadm_death_20_7.txt", "r") as file_death:
+    for line in file_death.readlines():
+        is_death = float(str(line.strip('\n')).split('\t')[1])
+        data_death.append(is_death)
+
+data_death_T = torch.LongTensor(data_death)
+
+group = 776
+# cf_record = np.load("./data/7/CF_node_polynomial_eff_pro.npy")
+# cf_record = np.load("./data/7/CF_node_is_fail.npy")
+cf_record = np.load("./data/7/CF_node_eff_pro.npy")
+
+
 hidden_dim_all = [256, 32, 64, 128]
 weight_CRs = [0.3, 0.5, 0.7, 0.9, 1.0]
 N_HIDDEN = 128
@@ -48,50 +87,6 @@ for index in range(5):
                 input_dim = 452
                 layer_num = 2
                 learning_rate = 0.0005
-
-                class CF(nn.Module):
-                    def __init__(self, n_hidden, length, input_dim, hidden_dim, layer_num):
-                        super(CF, self).__init__()
-
-                        self.input_dim = input_dim
-                        self.hidden_dim = hidden_dim
-                        self.pos_encoder = PositionalEncoding(n_hidden)
-                        self.hidden_ = torch.nn.Linear(input_dim, n_hidden)
-
-                        encoder_layer = torch.nn.TransformerEncoderLayer(d_model=n_hidden, nhead=2, dim_feedforward=hidden_dim, dropout=0.0)
-                        self.transformer = torch.nn.TransformerEncoder(encoder_layer, num_layers=layer_num)
-
-                        self.hidden = torch.nn.Linear(n_hidden, 1)
-                        self.out = torch.nn.Linear(length, 2)
-
-                    def forward(self, miu):
-                        miu = self.hidden_(miu)
-                        miu = self.pos_encoder(miu)
-                        x = self.transformer(miu)
-                        x = self.hidden(x)
-                        output = self.out(x.squeeze().transpose(0,1))
-                        return output
-
-
-                data_death = []
-                with open("./data/7/hadm_death_20_7.txt", "r") as file_death:
-                    for line in file_death.readlines():
-                        is_death = float(str(line.strip('\n')).split('\t')[1])
-                        data_death.append(is_death)
-
-                data_death_T = torch.LongTensor(data_death)
-                SAMPLE_NUM = len(data_death)
-
-                best_epoch = 0
-                best_loss = 10000
-                bad_count = 0
-                patience = 100
-                start = time.time()
-
-                group = 776
-                # cal_r_is_fail = np.load("./data/7/CF_node_polynomial_eff_pro.npy")
-                # cal_r_is_fail = np.load("./data/7/CF_node_is_fail.npy")
-                cf_record = np.load("./data/7/CF_node_eff_pro.npy")
 
                 if index == 0:
                     cal_r_is_fail_train = cf_record[group*1:]
@@ -123,6 +118,11 @@ for index in range(5):
                     miu_test_new = miu_test_new.cuda()
                     data_death_T = data_death_T.cuda()
 
+                best_epoch = 0
+                best_loss = 10000
+                bad_count = 0
+                patience = 100
+                start = time.time()
                 steps = group * 4 // batch_size
                 for epoch in range(epochs):
                     now = time.time()
